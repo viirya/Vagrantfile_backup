@@ -1,0 +1,71 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# To DRY UP Vagrant File
+# Reference: http://www.element84.com/dry-up-your-vagrant-files.html
+NUM_BOXES = 4
+IP_OFFSET = 10
+# You could change the IP address prefix for your lab
+def ip_from_num(i)
+    "192.168.90.#{i+IP_OFFSET}"
+end
+# Define Source Vagrant Box
+#basebox = "puppetlab-centos-64-nocm"
+baseurl = "http://puppet-vagrant-boxes.puppetlabs.com/centos-64-x64-vbox4210-nocm.box"
+# 
+Vagrant.configure("2") do |config|
+  # manage /etc/hosts by hostmanager plugin(https://github.com/smdahlen/vagrant-hostmanager)
+  config.hostmanager.enabled = true
+  # use loop to generate multiple VMs with similar configurations
+  (1..NUM_BOXES).each do |i|
+    is_main = (i == 1) || (i == 2)
+
+    #basebox = "centos64-puppet"
+
+    if i == 1
+        #basebox = "centos64-puppetserver"  
+        basebox = "centos64-hadoop-vm1-newbase6"
+    end
+    if i == 2
+        basebox = "centos64-hadoop-vm2-newbase6"
+    end
+    if i == 3
+        basebox = "centos64-hadoop-vm3-newbase6"
+    end
+ 
+    if i == 4
+        basebox = "centos64-hadoop-vm4-newbase6"
+    end
+     
+    config.vm.define "vm#{i}".to_sym do |vm1|
+      
+      vm1.vm.box = basebox
+      #vm1.vm.box_url = baseurl
+      
+      vm1.vm.provider :virtualbox do |vb|
+	    vb.customize ["modifyvm", :id, "--memory", "5120"]
+      end
+      
+      vm1.vm.network :private_network, ip: ip_from_num(i)
+      vm1.vm.hostname = "vm#{i}.openstacklocal".to_sym
+
+      vm1.vm.provision :shell do |shell|
+        if is_main
+          shell.path = "bin/master.sh"
+        else
+          shell.path = "bin/worker.sh"
+        end
+      end
+
+      # Sync /etc/hosts for each node
+      vm1.vm.provision :hostmanager
+      # Sync Disk folders to each VM
+      vm1.vm.synced_folder "disk#{i}", "/data", type: "nfs",
+        mount_options: ["noatime,nolock"]
+        #owner: "hdfs", group: "hadoop", mount_options: ["dmode=777,fmode=777,noatime"]
+
+    end
+
+  end
+
+end
